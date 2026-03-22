@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect x="32" y="32" width="448" height="448" rx="64" fill="#2196F3"/>
+  
+  <!-- Resize arrows -->
+  <path d="M 128 256 L 384 256 M 384 224 L 384 288 M 128 224 L 128 288" 
+        stroke="white" stroke-width="32" fill="none"/>
+  
+  <!-- Frame corners -->
+  <path d="M 160 160 L 160 192 L 192 192 M 160 352 L 160 320 L 192 320 
+           M 352 160 L 352 192 L 320 192 M 352 352 L 352 320 L 320 320" 
+        stroke="white" stroke-width="24" fill="none"/>
+</svg>
