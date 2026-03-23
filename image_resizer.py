@@ -153,7 +153,13 @@ class ImageResizerApp:
         ttk.Radiobutton(size_frame, text="Scale by percentage",
                        variable=self.size_mode, value="percentage",
                        command=self.update_size_fields).pack(anchor=tk.W)
-        ttk.Radiobutton(size_frame, text="Custom dimensions",
+        ttk.Radiobutton(size_frame, text="Fit to max width",
+                       variable=self.size_mode, value="fit_width",
+                       command=self.update_size_fields).pack(anchor=tk.W)
+        ttk.Radiobutton(size_frame, text="Fit to max height",
+                       variable=self.size_mode, value="fit_height",
+                       command=self.update_size_fields).pack(anchor=tk.W)
+        ttk.Radiobutton(size_frame, text="Exact dimensions",
                        variable=self.size_mode, value="dimensions",
                        command=self.update_size_fields).pack(anchor=tk.W)
 
@@ -167,7 +173,21 @@ class ImageResizerApp:
         ttk.Entry(self.scale_frame, textvariable=self.scale_var, width=6).pack(side=tk.LEFT, padx=5)
         ttk.Label(self.scale_frame, text="%").pack(side=tk.LEFT)
 
-        # Dimensions
+        # Width only
+        self.width_only_frame = ttk.Frame(self.size_container)
+        ttk.Label(self.width_only_frame, text="Max width:").pack(side=tk.LEFT)
+        self.fit_width_var = tk.StringVar(value="1280")
+        ttk.Entry(self.width_only_frame, textvariable=self.fit_width_var, width=6).pack(side=tk.LEFT, padx=5)
+        ttk.Label(self.width_only_frame, text="px  (height auto)", style='Info.TLabel').pack(side=tk.LEFT)
+
+        # Height only
+        self.height_only_frame = ttk.Frame(self.size_container)
+        ttk.Label(self.height_only_frame, text="Max height:").pack(side=tk.LEFT)
+        self.fit_height_var = tk.StringVar(value="720")
+        ttk.Entry(self.height_only_frame, textvariable=self.fit_height_var, width=6).pack(side=tk.LEFT, padx=5)
+        ttk.Label(self.height_only_frame, text="px  (width auto)", style='Info.TLabel').pack(side=tk.LEFT)
+
+        # Both dimensions
         self.dim_frame = ttk.Frame(self.size_container)
         ttk.Label(self.dim_frame, text="Width:").pack(side=tk.LEFT)
         self.width_var = tk.StringVar(value="800")
@@ -176,7 +196,7 @@ class ImageResizerApp:
         self.height_var = tk.StringVar(value="600")
         ttk.Entry(self.dim_frame, textvariable=self.height_var, width=6).pack(side=tk.LEFT, padx=5)
 
-        # Aspect ratio (only for custom dimensions)
+        # Aspect ratio (only for exact dimensions)
         self.aspect_frame = ttk.Frame(size_frame)
         self.aspect_mode = tk.StringVar(value="maintain")
         ttk.Radiobutton(self.aspect_frame, text="Maintain aspect ratio",
@@ -308,6 +328,8 @@ class ImageResizerApp:
 
         self.size_mode.trace_add('write', self.update_preview)
         self.scale_var.trace_add('write', self.update_preview)
+        self.fit_width_var.trace_add('write', self.update_preview)
+        self.fit_height_var.trace_add('write', self.update_preview)
         self.width_var.trace_add('write', self.update_preview)
         self.height_var.trace_add('write', self.update_preview)
         self.aspect_mode.trace_add('write', self.update_preview)
@@ -392,20 +414,29 @@ class ImageResizerApp:
     # ---------------------------------------------------------
     def update_size_fields(self):
         mode = self.size_mode.get()
+        # Hide all input frames first
+        self.scale_frame.pack_forget()
+        self.width_only_frame.pack_forget()
+        self.height_only_frame.pack_forget()
+        self.dim_frame.pack_forget()
+        self.aspect_frame.pack_forget()
+
         if mode == "original":
-            self.scale_frame.pack_forget()
-            self.dim_frame.pack_forget()
-            self.aspect_frame.pack_forget()
             self.process_btn.config(text="Convert")
             self.root.title("Image Converter")
         elif mode == "percentage":
-            self.dim_frame.pack_forget()
-            self.aspect_frame.pack_forget()
             self.scale_frame.pack(fill=tk.X)
             self.process_btn.config(text="Resize")
             self.root.title("Image Resizer")
-        else:
-            self.scale_frame.pack_forget()
+        elif mode == "fit_width":
+            self.width_only_frame.pack(fill=tk.X)
+            self.process_btn.config(text="Resize")
+            self.root.title("Image Resizer")
+        elif mode == "fit_height":
+            self.height_only_frame.pack(fill=tk.X)
+            self.process_btn.config(text="Resize")
+            self.root.title("Image Resizer")
+        else:  # dimensions
             self.dim_frame.pack(fill=tk.X)
             self.aspect_frame.pack(fill=tk.X, pady=(10, 0))
             self.process_btn.config(text="Resize")
@@ -491,11 +522,18 @@ class ImageResizerApp:
 
     def update_preview(self, *args):
         try:
-            if self.size_mode.get() == 'original':
+            mode = self.size_mode.get()
+            if mode == 'original':
                 suffix = "_converted"
-            elif self.size_mode.get() == 'percentage':
+            elif mode == 'percentage':
                 scale = float(self.scale_var.get())
                 suffix = f"_{int(scale)}p"
+            elif mode == 'fit_width':
+                w = self.fit_width_var.get()
+                suffix = f"_{w}w"
+            elif mode == 'fit_height':
+                h = self.fit_height_var.get()
+                suffix = f"_{h}h"
             else:
                 width = self.width_var.get()
                 height = self.height_var.get()
@@ -522,15 +560,32 @@ class ImageResizerApp:
             messagebox.showerror("Error", "No images selected. Use Browse to pick files.")
             return False
 
-        if self.size_mode.get() == "original":
+        mode = self.size_mode.get()
+        if mode == "original":
             pass
-        elif self.size_mode.get() == "percentage":
+        elif mode == "percentage":
             try:
                 scale = float(self.scale_var.get())
                 if not 1 <= scale <= 1000:
                     raise ValueError
             except ValueError:
                 messagebox.showerror("Error", "Please enter a valid scale percentage (1-1000)")
+                return False
+        elif mode == "fit_width":
+            try:
+                w = int(self.fit_width_var.get())
+                if w <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid width (positive number)")
+                return False
+        elif mode == "fit_height":
+            try:
+                h = int(self.fit_height_var.get())
+                if h <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid height (positive number)")
                 return False
         else:
             try:
@@ -559,11 +614,14 @@ class ImageResizerApp:
         if not self.validate_inputs():
             return
 
+        mode = self.size_mode.get()
         options = {
-            'size_mode': self.size_mode.get(),
-            'scale': float(self.scale_var.get()) if self.size_mode.get() == "percentage" else None,
-            'width': int(self.width_var.get()) if self.size_mode.get() == "dimensions" else None,
-            'height': int(self.height_var.get()) if self.size_mode.get() == "dimensions" else None,
+            'size_mode': mode,
+            'scale': float(self.scale_var.get()) if mode == "percentage" else None,
+            'fit_width': int(self.fit_width_var.get()) if mode == "fit_width" else None,
+            'fit_height': int(self.fit_height_var.get()) if mode == "fit_height" else None,
+            'width': int(self.width_var.get()) if mode == "dimensions" else None,
+            'height': int(self.height_var.get()) if mode == "dimensions" else None,
             'aspect_mode': self.aspect_mode.get(),
             'format': self.format_var.get(),
             'quality': self.quality_var.get(),
@@ -600,16 +658,31 @@ class ImageResizerApp:
                     with Image.open(img_path) as img:
                         img = ImageOps.exif_transpose(img)
 
-                        if options['size_mode'] == 'original':
+                        size_mode = options['size_mode']
+                        if size_mode == 'original':
                             resized = img.copy()
                             size_suffix = "_converted"
-                        elif options['size_mode'] == 'percentage':
+                        elif size_mode == 'percentage':
                             scale = options['scale'] / 100
                             new_width = int(img.width * scale)
                             new_height = int(img.height * scale)
                             size_suffix = f"_{int(scale * 100)}p"
                             resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                        else:
+                        elif size_mode == 'fit_width':
+                            target_w = options['fit_width']
+                            ratio = target_w / img.width
+                            new_width = target_w
+                            new_height = int(img.height * ratio)
+                            size_suffix = f"_{new_width}w"
+                            resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                        elif size_mode == 'fit_height':
+                            target_h = options['fit_height']
+                            ratio = target_h / img.height
+                            new_width = int(img.width * ratio)
+                            new_height = target_h
+                            size_suffix = f"_{new_height}h"
+                            resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                        else:  # dimensions
                             new_width = options['width']
                             new_height = options['height']
 
